@@ -1,17 +1,32 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-
+//todo remove includes when parse works
+#include <fstream>
+#include <algorithm>
+#include <streambuf>
+#include <iterator>
+//
 #include "Eigen/Dense"
 
 #define cimg_display 0
 #include "CImg.h"
+#include "ImageParser.h"
 
 using namespace Eigen;
 using namespace cimg_library;
 using namespace std;
 
 int main(int argc, const char * argv[]) {
+	//test parse text with file names
+	std::ifstream in{ "resized/name.txt" };
+	std::vector<std::string> vec;
+	if (in.is_open())
+	{
+		std::copy(std::istream_iterator<std::string>(in), std::istream_iterator<std::string>(), std::back_inserter(vec));
+	}
+
+	ImageParser<unsigned char> image("name.txt", "resized");
 
 	CImg<unsigned char> image1("oval1.ppm");
 

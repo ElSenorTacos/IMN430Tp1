@@ -4,13 +4,13 @@
 #include "CImg.h"
 #include <string>
 #include <vector>
- //T1 for the returned cimg format, T2 and T3 assume char*, char[] or string
+
 template<typename T>
 class ImageParser
 {
-	std::vector<std::string> filePaths; //
 	std::string folderPath;
-	std::vector<std::string>::const_iterator currentFilePath;
+	std::vector<std::string>::const_iterator currentImagePath;
+	std::vector<std::string> imagePaths;
 public:
 	ImageParser() = delete;
 	ImageParser(const std::string&, const std::string&);
@@ -18,9 +18,9 @@ public:
 	ImageParser(ImageParser&&) = delete;
 	~ImageParser() = default;
 
-	std::vector<std::string>::iterator begin() const;
+	std::vector<std::string>::iterator begin();
 	std::vector<std::string>::const_iterator begin() const;
-	std::vector<std::string>::iterator end() const;
+	std::vector<std::string>::iterator end();
 	std::vector<std::string>::const_iterator end() const;
 	cimg_library::CImg<T> load(const std::string& imageName, const std::string& imagePath) const;
 	cimg_library::CImg<T> next();
