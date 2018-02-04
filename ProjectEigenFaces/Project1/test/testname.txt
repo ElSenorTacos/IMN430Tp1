@@ -1,0 +1,4 @@
+oval1.ppm
+oval2.ppm
+brain1.ppm
+brain2.ppm

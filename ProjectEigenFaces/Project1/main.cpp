@@ -1,23 +1,49 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-
+//todo remove includes when parse works
+#include <fstream>
+#include <algorithm>
+#include <streambuf>
+#include <iterator>
+//
 #include "Eigen/Dense"
 
 #define cimg_display 0
 #include "CImg.h"
+#include "ImageParser.h"
 
 using namespace Eigen;
 using namespace cimg_library;
 using namespace std;
 
 int main(int argc, const char * argv[]) {
+	ImageParser<unsigned char> image("resized", "name.txt");
+	//CImg<unsigned char>test("1.png");
+	ImageParser<unsigned char> testImageParser("test", "testname.txt");
+	CImg<unsigned char> testCImg = testImageParser.next();
+	testCImg.save("output.ppm");
+	testImageParser.load("test", "oval1.ppm").save("teleportedOval");
+	testImageParser.setBegin();
+	unsigned int index = 0;
+	while (true)
+	{
+		CImg<unsigned char> current = testImageParser.next(); 
+		if (current != CImg<unsigned char>())
+		{
+			current.save(std::string(std::to_string(index) + ".ppm").c_str());
+			++index;
+		}
+		else
+		{
+			break;
+		}
+	}
 
-	CImg<unsigned char> image1("oval1.ppm");
+//	CImg<unsigned char> image1("oval1.ppm");
 
-	CImg<unsigned char> image1b(image1.get_RGBtoYCbCr().get_channel(0));
-
-	vector<int> xC, yC;
+	//CImg<unsigned char> image1b(image1.get_RGBtoYCbCr().get_channel(0));
+	/*	vector<int> xC, yC;
 
 	cimg_forXY(image1b, x, y)
 	{
@@ -59,7 +85,7 @@ int main(int argc, const char * argv[]) {
 
 	image1.rotate(-1.0*angle);
 
-	image1.save("output.ppm");
+	image1.save("output.ppm");*/
 
 	return 0;
 }
