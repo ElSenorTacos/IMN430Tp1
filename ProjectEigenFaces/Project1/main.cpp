@@ -18,21 +18,32 @@ using namespace cimg_library;
 using namespace std;
 
 int main(int argc, const char * argv[]) {
-	//test parse text with file names
-	std::ifstream in{ "resized/name.txt" };
-	std::vector<std::string> vec;
-	if (in.is_open())
+	ImageParser<unsigned char> image("resized", "name.txt");
+	//CImg<unsigned char>test("1.png");
+	ImageParser<unsigned char> testImageParser("test", "testname.txt");
+	CImg<unsigned char> testCImg = testImageParser.next();
+	testCImg.save("output.ppm");
+	testImageParser.load("test", "oval1.ppm").save("teleportedOval");
+	testImageParser.setBegin();
+	unsigned int index = 0;
+	while (true)
 	{
-		std::copy(std::istream_iterator<std::string>(in), std::istream_iterator<std::string>(), std::back_inserter(vec));
+		CImg<unsigned char> current = testImageParser.next(); 
+		if (current != CImg<unsigned char>())
+		{
+			current.save(std::string(std::to_string(index) + ".ppm").c_str());
+			++index;
+		}
+		else
+		{
+			break;
+		}
 	}
 
-	ImageParser<unsigned char> image("name.txt", "resized");
+//	CImg<unsigned char> image1("oval1.ppm");
 
-	CImg<unsigned char> image1("oval1.ppm");
-
-	CImg<unsigned char> image1b(image1.get_RGBtoYCbCr().get_channel(0));
-
-	vector<int> xC, yC;
+	//CImg<unsigned char> image1b(image1.get_RGBtoYCbCr().get_channel(0));
+	/*	vector<int> xC, yC;
 
 	cimg_forXY(image1b, x, y)
 	{
@@ -74,7 +85,7 @@ int main(int argc, const char * argv[]) {
 
 	image1.rotate(-1.0*angle);
 
-	image1.save("output.ppm");
+	image1.save("output.ppm");*/
 
 	return 0;
 }
