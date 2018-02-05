@@ -1,8 +1,8 @@
 #include "EigenFaces.h"
 
 template<class T>
-EigenFaces<T>::EigenFaces(std::string folder)
-    : parser{ folder }
+EigenFaces<T>::EigenFaces(std::string folder, std::string file)
+    : parser{ folder, file }
 {
 }
 

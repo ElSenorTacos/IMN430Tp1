@@ -5,9 +5,7 @@
 #include <vector>
 #include "Eigen/Cholesky"
 #include "ImageVector.h"
-
-template<class T>
-class ImageParser;
+#include "ImageParser.h"
 
 template<class T>
 class EigenFaces
@@ -20,7 +18,8 @@ public:
     typedef std::vector<LinearImageType>        LinImgPackType;
     typedef Eigen::VectorXd                     EigenLinearImageType;
 
-    explicit EigenFaces(std::string);
+    EigenFaces() = delete;
+    explicit EigenFaces(std::string, std::string);
     ~EigenFaces();
 
     EigenFaces<T>* apply(size_t);
