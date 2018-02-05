@@ -28,8 +28,9 @@ protected:
     ImageType       image0;
     LinImgPackType  eigenVecImages;
 
-    ImageType realign(ImageType);
+    ImageType realign(const ImageType&, const ImageType&) const;
     void pca(LinImgPackType, size_t);
+	std::vector<EigenLinearImageType> pca(const Eigen::MatrixXd&, size_t&);
 };
 
 #endif //__EigenFaces_h_
