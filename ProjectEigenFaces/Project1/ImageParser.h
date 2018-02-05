@@ -29,7 +29,7 @@ public:
 	ImageParser(ImageParser&&) = delete;
 	~ImageParser() = default;
 
-	inline std::vector<std::string>::iterator begin() { return return imagePaths.begin(); }
+	inline std::vector<std::string>::iterator begin() { return imagePaths.begin(); }
 	inline std::vector<std::string>::const_iterator begin() const { return imagePaths.cbegin(); }
 	inline std::vector<std::string>::iterator end() { return imagePaths.end(); }
 	inline std::vector<std::string>::const_iterator end() const { return imagePaths.cend(); }
