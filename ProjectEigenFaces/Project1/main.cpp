@@ -1,49 +1,116 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-//todo remove includes when parse works
-#include <fstream>
-#include <algorithm>
-#include <streambuf>
-#include <iterator>
-//
+
 #include "Eigen/Dense"
 
 #define cimg_display 0
 #include "CImg.h"
-#include "ImageParser.h"
 
 using namespace Eigen;
 using namespace cimg_library;
 using namespace std;
 
+double average(const CImg<unsigned char>& image, double& sigma, size_t X, size_t Y)
+{
+    double Xcenter;
+    double Ycenter;
+    if (X < 2)
+    {
+        Xcenter = 2;
+    }
+    else if(X > (image.width() - 3))
+    {
+        Xcenter = image.width() - 3;
+    }
+    else
+    {
+        Xcenter = X;
+    }
+
+    if (Y < 2)
+    {
+        Ycenter = 2;
+    }
+    else if (Y >(image.height() - 3))
+    {
+        Ycenter = image.height() - 3;
+    }
+    else
+    {
+        Ycenter = Y;
+    }
+
+
+    double somme = 0;
+    for (int i = -2; i <= 2; ++i)
+    {
+        for (int j = -2; j <= 2; ++j)
+        {
+            somme += image(Xcenter + i, Ycenter + j);
+        }
+    }
+    double mu = somme / 25.0f;
+
+    sigma = 0;
+    for (int i = -2; i <= 2; ++i)
+    {
+        for (int j = -2; j <= 2; ++j)
+        {
+            sigma += pow((image(Xcenter + i, Ycenter + j) - mu),2);
+
+        }
+    }
+
+    sigma = sigma / 25.0f;
+    //cout << "sig " << sigma << endl;
+    return mu;
+}
+
+CImg<unsigned char> filterPoints(const CImg<unsigned char>& image, vector<int>& imageX, vector<int>& imageY)
+{
+    imageX.clear();
+    imageY.clear();
+    CImg<unsigned char> copy(image);
+
+    CImg<unsigned char> imageGrey = copy.get_RGBtoYCbCr().get_channel(0).equalize(255,0,255);
+    imageGrey.save("equal.ppm");
+
+    double sig = 0;
+
+
+    cimg_forXY(imageGrey, x, y)
+    {
+
+        double mu = average(imageGrey, sig, x, y);
+
+        if (abs((imageGrey(x,y) - mu) / sig) > 0.5)
+        {
+            imageX.push_back(x);
+            imageY.push_back(y);
+        }
+    }
+
+    CImg<unsigned char> imageFiltered( image.width(), image.height(), image.depth(), image.spectrum());
+    imageFiltered.fill(0);
+    for (int i = 0; i < imageX.size(); ++i)
+    {
+        imageFiltered(imageX[i], imageY[i],0) = image(imageX[i], imageY[i],0);
+        imageFiltered(imageX[i], imageY[i],1) = image(imageX[i], imageY[i],1);
+        imageFiltered(imageX[i], imageY[i],2) = image(imageX[i], imageY[i],2);
+    }
+
+
+    return imageFiltered;
+}
+
 int main(int argc, const char * argv[]) {
-	ImageParser<unsigned char> image("resized", "name.txt");
-	//CImg<unsigned char>test("1.png");
-	ImageParser<unsigned char> testImageParser("test", "testname.txt");
-	CImg<unsigned char> testCImg = testImageParser.next();
-	testCImg.save("output.ppm");
-	testImageParser.load("test", "oval1.ppm").save("teleportedOval");
-	testImageParser.setBegin();
-	unsigned int index = 0;
-	while (true)
-	{
-		CImg<unsigned char> current = testImageParser.next(); 
-		if (current != CImg<unsigned char>())
-		{
-			current.save(std::string(std::to_string(index) + ".ppm").c_str());
-			++index;
-		}
-		else
-		{
-			break;
-		}
-	}
+    /*
+	CImg<unsigned char> image1("oval1.ppm");
 
-//	CImg<unsigned char> image1("oval1.ppm");
+	CImg<unsigned char> image1b(image1.get_RGBtoYCbCr().get_channel(0));
 
-	//CImg<unsigned char> image1b(image1.get_RGBtoYCbCr().get_channel(0));
-	/*	vector<int> xC, yC;
+	vector<int> xC, yC;
 
 	cimg_forXY(image1b, x, y)
 	{
@@ -85,7 +152,19 @@ int main(int argc, const char * argv[]) {
 
 	image1.rotate(-1.0*angle);
 
-	image1.save("output.ppm");*/
+	image1.save("output.ppm");
+     */
+
+	CImg<unsigned char> image1("16.ppm");
+	CImg<unsigned char> image2("6.ppm");
+
+	vector<int> imageX; vector<int> imageY;
+
+	CImg<unsigned char> image2Aligned = realign(image1, image2);
+
+	image2Aligned.save("output3.ppm");
+
+
 
 	return 0;
 }
