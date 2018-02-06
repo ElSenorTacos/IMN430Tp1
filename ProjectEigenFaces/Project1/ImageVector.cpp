@@ -43,3 +43,15 @@ void ImageVector<T>::initialize(const int nbChannels, const int size)
         componentVector->resize(size);
     });
 }
+
+void ImageVector<T>::save(std::string name, size_t sizeX, size_t sizeY)
+{
+    ImageType output(sizeX, sizeY, 1, imageComponents.size());
+    cimg_forXY(output, x, y)
+    {
+        for(size_t i = 0; i < imageComponents.size(); ++i)
+        {
+            output(x,y,1,i) = imageComponents.at(i)(x + y * sizeX);
+        }
+    }
+}

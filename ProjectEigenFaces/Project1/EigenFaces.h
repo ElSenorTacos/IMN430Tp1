@@ -3,7 +3,7 @@
 #include "CImg.h"
 #include <string>
 #include <vector>
-#include "Eigen/Cholesky"
+#include "Eigen/Dense"
 #include "ImageVector.h"
 #include "ImageParser.h"
 
@@ -17,20 +17,26 @@ public:
     typedef ImageVector<T>                      LinearImageType;
     typedef std::vector<LinearImageType>        LinImgPackType;
     typedef Eigen::VectorXd                     EigenLinearImageType;
+	typedef std::vector<Eigen::VectorXd>        EigenLinearImagePackType;
 
     EigenFaces() = delete;
     explicit EigenFaces(std::string, std::string);
     ~EigenFaces();
 
-    EigenFaces<T>* apply(size_t);
+    void apply(const size_t);
     ImageType reconstruct(std::string);
 protected:
     ImageType       image0;
     LinImgPackType  eigenVecImages;
 
-    ImageType realign(const ImageType&, const ImageType&) const;
+    ImageType realign(const ImageType&, const ImageType&);
     void pca(LinImgPackType, size_t);
-	std::vector<EigenLinearImageType> pca(const Eigen::MatrixXd&, size_t&);
+	EigenLinearImagePackType pca(Eigen::MatrixXd&, size_t&);
 };
 
 #endif //__EigenFaces_h_
+
+#if not EigenFaces_Manual_Instanciation
+#define EigenFaces_Manual_Instanciation 1
+#include "EigenFaces.cpp"
+#endif

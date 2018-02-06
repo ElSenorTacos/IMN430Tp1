@@ -1,4 +1,6 @@
 #include "EigenFaces.h"
+#include "FGExtractor.h"
+#include <string>
 
 template<class T>
 EigenFaces<T>::EigenFaces(std::string folder, std::string file)
@@ -12,21 +14,19 @@ EigenFaces<T>::~EigenFaces()
 }
 
 template<class T>
-EigenFaces<T>* EigenFaces<T>::apply(const size_t nbComponents)
+void EigenFaces<T>::apply(const size_t nbComponents)
 {
     LinImgPackType vectorizedImages;
 
     this->image0 = parser.next();
-    vectorizedImages.emplace_back({ this->image0 });
+    vectorizedImages.emplace_back( this->image0 );
 
-    std::for_each(parser.begin() + 1, parser.end(),[]()
+    std::for_each(parser.begin() + 1, parser.end(),[&](std::string a)
     {
-        vectorizedImages.emplace_back({ this->realign(parser.next()) });
+        vectorizedImages.emplace_back( this->realign(this->image0, parser.next()) );
     });
 
     this->pca(vectorizedImages, nbComponents);
-
-    return this;
 }
 
 template<class T>
@@ -36,68 +36,34 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileNam
 }
 
 template <class T>
-typename EigenFaces<T>::ImageType EigenFaces<T>::realign(const ImageType& model, const ImageType& imageToAlign) const
+typename EigenFaces<T>::ImageType EigenFaces<T>::realign(const ImageType& model, const ImageType& imageToAlign)
 {
-	std::vector<int> modelX, modelY;
-	std::vector<int> imageX, imageY;
+	std::vector<std::pair<int,int>> modelInterests, imageInterests;
+	FGExtractor<unsigned char> extractor;
+	modelInterests = extractor.getForegroundPixelsPositions(model.get_RGBtoYCbCr().get_channel(0).equalize(255,0,255), 5);
+	imageInterests = extractor.getForegroundPixelsPositions(imageToAlign.get_RGBtoYCbCr().get_channel(0).equalize(255,0,255), 5);
 
-	cimg_forXY(model, x, y)
-	{
-		bool awesomePixel = false;
-		for (int chanel = 0; chanel < model.spectrum(); ++chanel)
-		{
-			if (model.get_channel(chanel)(x, y) > 50)
-			{
-				awesomePixel = true;
-			}
-		}
-
-		if (awesomePixel)
-		{
-			modelX.push_back(x);
-			modelY.push_back(y);
-		}
-	}
-
-	cimg_forXY(imageToAlign, x, y)
-	{
-		bool awesomePixel = false;
-		for (int chanel = 0; chanel < imageToAlign.spectrum(); ++chanel)
-		{
-			if (imageToAlign.get_channel(chanel)(x, y) > 50)
-			{
-				awesomePixel = true;
-			}
-		}
-
-		if (awesomePixel)
-		{
-			imageX.push_back(x);
-			imageY.push_back(y);
-		}
-	}
-
-	int N1 = modelX.size();
-	int N2 = imageX.size();
+	int N1 = modelInterests.size();
+	int N2 = imageInterests.size();
 
 	Eigen::MatrixXd F1(2, N1);
 	Eigen::MatrixXd F2(2, N2);
 
 	for (int i = 0; i < N1; ++i)
 	{
-		F1(0, i) = modelX[i];
-		F1(1, i) = modelY[i];
+		F1(0, i) = modelInterests[i].first;
+		F1(1, i) = modelInterests[i].second;
 	}
 	for (int i = 0; i < N2; ++i)
 	{
-		F2(0, i) = imageX[i];
-		F2(1, i) = imageY[i];
+		F2(0, i) = imageInterests[i].first;
+		F2(1, i) = imageInterests[i].second;
 	}
 
-	double modelPcaMaxIndex = 0;
-	double imagePcaMaxIndex = 0;
-	std::vector< Eigen::VectorXd > pcaModel = pca(F1, modelPcaMaxIndex);
-	std::vector< Eigen::VectorXd > pcaImage = pca(F2, modelPcaMaxIndex);
+	size_t modelPcaMaxIndex = 0;
+	size_t imagePcaMaxIndex = 0;
+	std::vector< Eigen::VectorXd > pcaModel = this->pca(F1, modelPcaMaxIndex);
+	std::vector< Eigen::VectorXd > pcaImage = this->pca(F2, modelPcaMaxIndex);
 
 	Eigen::VectorXd modelMainAxis = pcaModel[modelPcaMaxIndex];
 	Eigen::VectorXd imageMainAxis = pcaImage[imagePcaMaxIndex];
@@ -115,7 +81,7 @@ template<class T>
 void EigenFaces<T>::pca(LinImgPackType dataVectors, size_t nbComponents)
 {
     this->eigenVecImages.resize(dataVectors.size());
-    std::for_each(this->eigenVecImages.begin(), this->eigenVecImages.end(), [&](LinImgPackType& vectorImage)
+    std::for_each(this->eigenVecImages.begin(), this->eigenVecImages.end(), [&](LinearImageType& vectorImage)
     {
         vectorImage.resize(dataVectors.front().componentsCount());
         vectorImage.setPixelSize(nbComponents);
@@ -127,7 +93,7 @@ void EigenFaces<T>::pca(LinImgPackType dataVectors, size_t nbComponents)
     {
         std::for_each(dataVectors.begin(), dataVectors.end(), [&](LinearImageType imageVector)
         {
-            pcaMatrix.row(imageIndex) = imageVector;
+            pcaMatrix.row(imageIndex) << imageVector.getComponent(component);
             ++imageIndex;
         });
         std::vector<EigenLinearImageType> eigenImages = pca(pcaMatrix, nbComponents);
@@ -136,10 +102,14 @@ void EigenFaces<T>::pca(LinImgPackType dataVectors, size_t nbComponents)
             this->eigenVecImages.at(i).setComponent(component, eigenImages.at(i));
         }
     }
+	for (int i = 0; i < eigenVecImages.size(); ++i)
+	{
+		this->eigenVecImages.at(i).save("eigenV" + std::to_string(i) + ".ppm", image0.width(), image0.height());
+	}
 }
 
 template<class T>
-std::vector<typename EigenFaces<T>::EigenLinearImageType> pca(const Eigen::MatrixXd& data, size_t& maxIndex)
+typename EigenFaces<T>::EigenLinearImagePackType EigenFaces<T>::pca(Eigen::MatrixXd& data, size_t& maxIndex)
 {
 	int N = data.cols();
 	if (N == 0)
