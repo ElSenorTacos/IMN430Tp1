@@ -44,6 +44,7 @@ void ImageVector<T>::initialize(const int nbChannels, const int size)
     });
 }
 
+template <class T>
 void ImageVector<T>::save(std::string name, size_t sizeX, size_t sizeY)
 {
     ImageType output(sizeX, sizeY, 1, imageComponents.size());
