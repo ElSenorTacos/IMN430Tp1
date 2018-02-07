@@ -97,7 +97,7 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::realign(const ImageType& model,
 	size_t modelPcaMaxIndex = 0;
 	size_t imagePcaMaxIndex = 0;
 	std::vector< Eigen::VectorXd > pcaModel = this->pca(F1, modelPcaMaxIndex);
-	std::vector< Eigen::VectorXd > pcaImage = this->pca(F2, modelPcaMaxIndex);
+	std::vector< Eigen::VectorXd > pcaImage = this->pca(F2, imagePcaMaxIndex);
 
 	Eigen::VectorXd modelMainAxis = pcaModel[modelPcaMaxIndex];
 	Eigen::VectorXd imageMainAxis = pcaImage[imagePcaMaxIndex];
@@ -105,8 +105,36 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::realign(const ImageType& model,
 	double dotprod(imageMainAxis.dot(modelMainAxis));
 	double angle(acos(dotprod)*180.0 / 3.14159);
 
-	ImageType outImage = imageToAlign;
-	outImage.rotate(-1.0*angle);
+
+	ImageType rotatedImage = imageToAlign;
+	rotatedImage.rotate(-1.0*angle);
+
+	ImageType outImage(imageToAlign.width(), imageToAlign.height(), imageToAlign.depth(), imageToAlign.spectrum());
+	if (rotatedImage.width() > imageToAlign.width() &&
+		rotatedImage.height() > imageToAlign.height())
+	{
+		size_t startX = 0;
+		size_t startY = 0;
+
+		startX = std::max((rotatedImage.width() / 2) - (outImage.width() / 2), 0);
+		startY = std::max((rotatedImage.height() / 2) - (outImage.height() / 2), 0);
+
+		cimg_forXY(outImage, x, y)
+		{
+			for (size_t chanel = 0; chanel < outImage.spectrum(); ++chanel)
+			{
+				outImage(x, y, chanel) = rotatedImage(x + startX, y + startY, chanel);
+			}
+		}
+	}
+	else
+	{
+		outImage = rotatedImage;
+	}
+
+
+	outImage.save("rotated.ppm");
+	imageToAlign.save("original.ppm");
 
 	return std::move(outImage);
 }
@@ -127,7 +155,7 @@ void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents)
 	{
 		std::for_each(dataVectors.begin(), dataVectors.end(), [&](LinearImageType imageVector)
 		{
-			pcaMatrix.row(imageIndex) = imageVector.getComponent(component).cast<double>();
+			pcaMatrix.col(imageIndex) = imageVector.getComponent(component).cast<double>();
 			++imageIndex;
 		});
 		std::vector<EigenLinearImageType> eigenImages = pca(pcaMatrix, sz);
@@ -159,7 +187,7 @@ typename EigenFaces<T>::EigenLinearImagePackType EigenFaces<T>::pca(Eigen::Matri
 
 	Eigen::EigenSolver<Eigen::MatrixXd> ES(Q);
 
-	ES.eigenvalues().real();
+	ES.eigenvalues().real().maxCoeff(&maxIndex);
 
 	std::vector< EigenLinearImageType > eigenVectors;
 
