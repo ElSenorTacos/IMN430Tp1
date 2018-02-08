@@ -106,7 +106,7 @@ void EigenFaces<T>::loadEigenvectors(std::string dbfileName)
 template<class T>
 void EigenFaces<T>::saveEigenvectors()
 {
-	std::ofstream dbfile("eigenvectors.evdb");
+	std::ofstream dbfile("eigenvectors" + std::to_string(size) + ".evdb");
 	dbfile << size << " " << eigenVecImages.size() << std::endl;
 	cimg_forX(mean, x) {
 		for (int i = 0; i < size - 1; ++i) dbfile << mean(x, i, 0, 0) << " ";
@@ -126,11 +126,11 @@ void EigenFaces<T>::apply(int imgSize)
 	LinImgPackType vectorizedImages;
 
 	this->image0 = parser.next();
-	vectorizedImages.emplace_back(this->image0.get_resize(imgSize, imgSize, 1, this->image0.spectrum()).get_RGBtoYCbCr().get_channel(0));
+	vectorizedImages.emplace_back(this->image0.get_resize(imgSize, imgSize, 1, this->image0.spectrum(), 5).get_RGBtoYCbCr().get_channel(0));
 
 	std::for_each(parser.begin() + 1, parser.end(), [&](std::string a)
 	{
-		vectorizedImages.emplace_back(/*this->realign(this->image0, */parser.next()/*)*/.resize(imgSize, imgSize, 1, this->image0.spectrum()).get_RGBtoYCbCr().get_channel(0));
+		vectorizedImages.emplace_back(/*this->realign(this->image0, */parser.next()/*)*/.resize(imgSize, imgSize, 1, this->image0.spectrum(), 5).get_RGBtoYCbCr().get_channel(0));
 	});
 
 	this->pca(vectorizedImages, imgSize * imgSize, imgSize);
@@ -142,7 +142,7 @@ template<class T>
 typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int nbComponents)
 {
 	EigenLinImgType output(size, size, 1, 1); output.fill(0);
-	EigenLinImgType ref(/*this->realign(image0, */parser.load(fileName)/*)*/.get_resize(size, size, 1, 1));
+	EigenLinImgType ref(/*this->realign(image0, */parser.load(fileName)/*)*/.get_resize(size, size, 1, 1, 5));
 	ref.save(("ref_" + std::to_string(nbComponents) + "_" + fileName + ".pgm").c_str());
 	ImageVector<double> dummy(ref - mean);
 	for (int ch = 0; ch < this->eigenVecImages.front().componentsCount(); ++ch) {
