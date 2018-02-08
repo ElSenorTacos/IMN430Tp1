@@ -25,14 +25,14 @@ public:
     explicit EigenFaces(std::string, std::string);
     ~EigenFaces();
 
-    void apply(const size_t);
+    void apply(const size_t, int);
     ImageType reconstruct(std::string);
 protected:
     ImageType       image0;
     LinImgPackType  eigenVecImages;
 
     ImageType realign(const ImageType&, const ImageType&);
-    void pca(LinImgPackType&, size_t);
+    void pca(LinImgPackType&, size_t, int);
 	EigenLinearImagePackType pca(Eigen::MatrixXd&, size_t&);
 };
 
@@ -48,19 +48,19 @@ EigenFaces<T>::~EigenFaces()
 }
 
 template<class T>
-void EigenFaces<T>::apply(const size_t nbComponents)
+void EigenFaces<T>::apply(const size_t nbComponents, int imgSize)
 {
 	LinImgPackType vectorizedImages;
 
 	this->image0 = parser.next();
-	vectorizedImages.emplace_back(this->image0);
+	vectorizedImages.emplace_back(this->image0.get_resize(imgSize, imgSize, 1, this->image0.spectrum()));
 
 	std::for_each(parser.begin() + 1, parser.end(), [&](std::string a)
 	{
-		vectorizedImages.emplace_back(this->realign(this->image0, parser.next()).resize(this->image0));
+		vectorizedImages.emplace_back(this->realign(this->image0, parser.next()).resize(imgSize, imgSize, 1, this->image0.spectrum()));
 	});
 
-	this->pca(vectorizedImages, nbComponents);
+	this->pca(vectorizedImages, nbComponents, imgSize);
 }
 
 template<class T>
@@ -132,17 +132,13 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::realign(const ImageType& model,
 		outImage = rotatedImage;
 	}
 
-
-	outImage.save("rotated.ppm");
-	imageToAlign.save("original.ppm");
-
 	return std::move(outImage);
 }
 
 template<class T>
-void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents)
+void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents, int imgSize)
 {
-	this->eigenVecImages.resize(dataVectors.size());
+	this->eigenVecImages.resize(nbComponents);
 	std::for_each(this->eigenVecImages.begin(), this->eigenVecImages.end(), [&](LinearImageType& vectorImage)
 	{
 		vectorImage.resize(dataVectors.front().componentsCount());
@@ -159,14 +155,15 @@ void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents)
 			++imageIndex;
 		});
 		std::vector<EigenLinearImageType> eigenImages = pca(pcaMatrix, sz);
-		for (int i = 0; i < eigenImages.size(); ++i)
+		for (int i = 0; i < nbComponents; ++i)
 		{
-			this->eigenVecImages.at(i).setComponent(component, eigenImages.at(i));
+			this->eigenVecImages.at(i).setComponentFree(component, eigenImages.at(i));
 		}
+		imageIndex = 0;
 	}
-	for (int i = 0; i < eigenVecImages.size(); ++i)
+	for (int i = 0; i < nbComponents; ++i)
 	{
-		this->eigenVecImages.at(i).save("eigenV" + std::to_string(i) + ".ppm", image0.width(), image0.height());
+		this->eigenVecImages.at(i).save("eigenV" + std::to_string(i) + ".ppm", imgSize, imgSize);
 	}
 }
 
@@ -185,7 +182,7 @@ typename EigenFaces<T>::EigenLinearImagePackType EigenFaces<T>::pca(Eigen::Matri
 
 	Eigen::MatrixXd Q = (1.0 / (N - 1.0)) * (data - Xbarre * O.transpose()) * (data - Xbarre * O.transpose()).transpose();
 
-	Eigen::EigenSolver<Eigen::MatrixXd> ES(Q);
+	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> ES(Q);
 
 	ES.eigenvalues().real().maxCoeff(&maxIndex);
 

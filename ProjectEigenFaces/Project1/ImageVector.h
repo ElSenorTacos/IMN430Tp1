@@ -4,6 +4,7 @@
 #include <vector>
 #include "Eigen/Cholesky"
 #include "CImg.h"
+#include <string>
 
 template<class T>
 class ImageVector
@@ -99,9 +100,10 @@ void ImageVector<T>::save(std::string name, size_t sizeX, size_t sizeY)
 	{
 		for (size_t i = 0; i < imageComponents.size(); ++i)
 		{
-			output(x, y, 1, i) = imageComponents.at(i)(x + y * sizeX);
+			output(x, y, 0, i) = abs(imageComponents.at(i)(x + y * sizeX)) * 256.f;
 		}
 	}
+	output.save(name.c_str());
 }
 
 #endif //__ImageVector_h_

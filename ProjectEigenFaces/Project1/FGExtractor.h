@@ -14,6 +14,8 @@ public:
 
     FGExtractor();
     ~FGExtractor();
+	void erosionImage(std::vector<std::pair<int, int>>& interests, ImageType& input);
+	void dilatationImage(std::vector<std::pair<int, int>>& interests, ImageType& input);
     ImageType computeAverage(ImageType&, int);
     ImageType computeVariance(ImageType&, int);
 private:
@@ -49,6 +51,14 @@ private:
             R val = sumApply(image, std::forward<F>(f), initial_value) / R(size);
             return val;
         }
+		template<class F, class I>
+		void affect(I& image, F&& f) {
+			for (size_t i = mini; i <= maxi; ++i) {
+				for (size_t j = minj; j <= maxj; ++j) {
+					image(i,j) = f(image, i, j);
+				}
+			}
+		}
     };
 };
 
@@ -69,6 +79,60 @@ typename FGExtractor<T>::ImageType FGExtractor<T>::estimageForeground(ImageType 
 }
 
 template <class T>
+void FGExtractor<T>::erosionImage(std::vector<std::pair<int, int>>& interests, ImageType& input)
+{
+	std::vector<std::pair<int, int>> keptList;
+	size_t pointListSize = interests.size();
+
+	for (int i = 0; i < pointListSize; ++i)
+	{
+		int x = interests[i].first;
+		int y = interests[i].second;
+
+		if (input(x + 1, y, 0) != 0 &&
+			input(x - 1, y, 0) != 0 &&
+			input(x, y + 1, 0) != 0 &&
+			input(x, y - 1, 0) != 0 &&
+			input(x + 1, y + 1, 0) != 0 &&
+			input(x - 1, y - 1, 0) != 0 &&
+			input(x + 1, y - 1, 0) != 0 &&
+			input(x - 1, y + 1, 0) != 0)
+		{
+			keptList.emplace_back(x, y);
+		}
+	}
+	interests = keptList;
+}
+
+
+template <class T>
+void FGExtractor<T>::dilatationImage(std::vector<std::pair<int, int>>& interests, ImageType& input)
+{
+	std::vector<std::pair<int, int>> keptList;
+	size_t pointListSize = interests.size();
+
+	Neighborhood neigborhood;
+	std::pair<int, int> limits{ input.width(), input.height() };
+
+	for (int i = 0; i < pointListSize; ++i)
+	{
+		neigborhood.place(interests[i], 3, limits)->affect(input, [](ImageType&, int, int) { return 255.f; });
+	}
+
+
+	interests.clear();
+
+	cimg_forXY(input, x, y)
+	{
+		if(input(x, y, 0) != 0)
+		{
+			interests.emplace_back(x, y);
+		}
+	}
+
+}
+
+template <class T>
 std::vector<std::pair<int, int>> FGExtractor<T>::getForegroundPixelsPositions(ImageType input, int windowSize)
 {
 	cimg_library::CImg<double> average(computeAverage(input, windowSize));
@@ -80,11 +144,25 @@ std::vector<std::pair<int, int>> FGExtractor<T>::getForegroundPixelsPositions(Im
 		double variance = neighborhood.place({ x, y }, double(windowSize), limits)->sumApplyNomalized(input, [&](T pixel, size_t i, size_t j) {
 			return std::pow(double(pixel) - average(i, j), 2.f);
 		}, 0.f);
-		if (abs((input(x, y) - average(x, y)) / variance) > 0.5)
+		if ( abs((input(x, y) - average(x, y)) / variance) > 0.1 && (x > 2 && y >2 ) )
 		{
 			interests.emplace_back(x, y);
 		}
 	}
+
+	ImageType pointMap(input.width(), input.height(), input.depth(), input.spectrum());
+	pointMap.fill(0);
+	for (int i = 0; i <interests.size(); ++i)
+	{
+		for (int chanel = 0; chanel < input.spectrum(); ++chanel)
+		{
+			pointMap(interests[i].first, interests[i].second, 0, chanel) = 255;
+		}
+	}
+
+	dilatationImage(interests, pointMap);
+	erosionImage(interests, pointMap);
+
 	return std::forward<std::vector<std::pair<int, int>>>(interests);
 }
 
