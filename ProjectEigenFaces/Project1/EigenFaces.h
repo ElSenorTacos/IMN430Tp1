@@ -80,7 +80,7 @@ void EigenFaces<T>::apply(const size_t nbComponents, int imgSize)
 
 	std::for_each(parser.begin() + 1, parser.end(), [&](std::string a)
 	{
-		vectorizedImages.emplace_back(this->realign(this->image0, parser.next()).resize(imgSize, imgSize, 1, this->image0.spectrum()).get_RGBtoYCbCr().get_channel(0));
+		vectorizedImages.emplace_back(/*this->realign(this->image0, */parser.next()/*)*/.resize(imgSize, imgSize, 1, this->image0.spectrum()).get_RGBtoYCbCr().get_channel(0));
 	});
 
 	this->pca(vectorizedImages, nbComponents, imgSize);
@@ -90,7 +90,7 @@ template<class T>
 typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int imgSize)
 {
 	EigenLinImgType output(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()); output.fill(0);
-	EigenLinImgType ref(this->realign(image0, parser.load(fileName)).get_resize(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()));
+	EigenLinImgType ref(/*this->realign(image0, */parser.load(fileName)/*)*/.get_resize(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()));
 	ImageVector<double> dummy(ref - mean);
 	for (int ch = 0; ch < this->eigenVecImages.front().componentsCount(); ++ch) {
 		Eigen::VectorXd c(this->eigenVecImages.size());
@@ -106,7 +106,7 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileNam
 		}
 	}
 	output += mean;
-	return output;
+	return output.abs();
 }
 
 template <class T>
@@ -240,12 +240,9 @@ typename EigenFaces<T>::EigenLinearImagePackType EigenFaces<T>::pca(Eigen::Matri
 		}
 		std::sort(vpsorted.begin(), vpsorted.end(), bigger);
 		std::vector<EigenLinearImageType> eig2;
-		std::cout << "Eigens : ";
 		std::for_each(vpsorted.rbegin(), vpsorted.rend(), [&](eigen e) {
-			std::cout << e.value << " ";
 			eig2.push_back(*(e.vect));
 		});
-		std::cout << std::endl;
 		eigenVectors = eig2;
 	}
 	else {

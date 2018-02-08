@@ -19,23 +19,29 @@ int main(int argc, const char * argv[]) {
 		image1.save(fileXOutput.c_str());
 	}*/
 	size_t sz, nbVects;
-	cout << "What size bra : ";
+	cout << "What size : ";
 	cin >> sz;
-	cout << "Nb of v_prop bra : ";
+	cout << "Nb of v_prop : ";
 	cin >> nbVects;
 
 
     EigenFaces<unsigned char> eigenFaces(argv[1], argv[2]);
     eigenFaces.apply(nbVects, sz);
-
 	string recons, ext;
-	cout << "Image to rebuild (without extension) : ";
-	cin >> recons;
-	cout << "Extension : ";
-	cin >> ext;
-	EigenFaces<unsigned char>::ImageType output = eigenFaces.reconstruct(recons + ext, sz);
-	string ouputn = recons + "_recons" + ext;
-	output.save(ouputn.c_str());
+	while (true) {
+		cout << "Image to rebuild (without extension) : ";
+		cin >> recons;
+		cout << "Extension : ";
+		cin >> ext;
+		EigenFaces<unsigned char>::ImageType output = eigenFaces.reconstruct(recons + ext, sz);
+		string ouputn = recons + "_recons" + ext;
+		output.save(ouputn.c_str());
+		cout << "Another ? ";
+		cin >> recons;
+		if (recons == "n" || recons == "N") {
+			break;
+		}
+	}
 
 	return 0;
 }
