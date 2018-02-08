@@ -47,12 +47,20 @@ public:
     explicit EigenFaces(std::string, std::string);
     ~EigenFaces();
 
-    void apply(const size_t, int);
+    void apply(int);
     ImageType reconstruct(std::string, int);
+
+	bool existingDB() { return dbExists; }
 protected:
     ImageType			 image0;
 	EigenLinImgPackType  eigenVecImages;
 	EigenLinImgType		 mean;
+	int					 size;
+
+	bool dbExists = false;
+
+	void loadEigenvectors(std::string dbfile);
+	void saveEigenvectors();
 
     ImageType realign(const ImageType&, const ImageType&);
     void pca(LinImgPackType&, size_t, int);
@@ -63,6 +71,8 @@ template<class T>
 EigenFaces<T>::EigenFaces(std::string folder, std::string file)
 	: parser{ folder, file }
 {
+	std::string ext = file.substr(file.find('.'), file.size() - file.find('.'));
+	if (ext == ".evdb") loadEigenvectors(file);
 }
 
 template<class T>
@@ -71,7 +81,47 @@ EigenFaces<T>::~EigenFaces()
 }
 
 template<class T>
-void EigenFaces<T>::apply(const size_t nbComponents, int imgSize)
+void EigenFaces<T>::loadEigenvectors(std::string dbfileName)
+{
+	int eigvCount;
+	std::ifstream dbfile(dbfileName);
+	dbfile >> size >> eigvCount;
+
+	mean.resize(size, size, 1, 1);
+	cimg_forXY(mean, x, y) {
+		dbfile >> mean(y, x, 0, 0);
+	}
+	eigenVecImages.resize(eigvCount);
+	for (int evIndex = 0; evIndex < eigvCount; ++evIndex) {
+		eigenVecImages.at(evIndex).setPixelSize(size * size);
+		Eigen::VectorXd temp(size * size);
+		for (int i = 0; i < size * size; ++i) {
+			dbfile >> temp(i);
+		}
+		eigenVecImages.at(evIndex).setComponent(0, temp);
+	}
+	dbExists = true;
+}
+
+template<class T>
+void EigenFaces<T>::saveEigenvectors()
+{
+	std::ofstream dbfile("eigenvectors.evdb");
+	dbfile << size << " " << eigenVecImages.size() << std::endl;
+	cimg_forX(mean, x) {
+		for (int i = 0; i < size - 1; ++i) dbfile << mean(x, i, 0, 0) << " ";
+		dbfile << mean(x, size - 1, 0, 0) << std::endl;
+	}
+	std::for_each(eigenVecImages.begin(), eigenVecImages.end(), [&](ImageVector<double>& eigv) {
+		for (int i = 0; i < eigv.pixelCount() - 1; ++i) {
+			dbfile << eigv.getComponent(0)(i) << " ";
+		}
+		dbfile << eigv.getComponent(0)(eigv.pixelCount() - 1) << std::endl;
+	});
+}
+
+template<class T>
+void EigenFaces<T>::apply(int imgSize)
 {
 	LinImgPackType vectorizedImages;
 
@@ -83,26 +133,29 @@ void EigenFaces<T>::apply(const size_t nbComponents, int imgSize)
 		vectorizedImages.emplace_back(/*this->realign(this->image0, */parser.next()/*)*/.resize(imgSize, imgSize, 1, this->image0.spectrum()).get_RGBtoYCbCr().get_channel(0));
 	});
 
-	this->pca(vectorizedImages, nbComponents, imgSize);
+	this->pca(vectorizedImages, imgSize * imgSize, imgSize);
+	size = imgSize;
+	saveEigenvectors();
 }
 
 template<class T>
-typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int imgSize)
+typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int nbComponents)
 {
-	EigenLinImgType output(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()); output.fill(0);
-	EigenLinImgType ref(/*this->realign(image0, */parser.load(fileName)/*)*/.get_resize(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()));
+	EigenLinImgType output(size, size, 1, 1); output.fill(0);
+	EigenLinImgType ref(/*this->realign(image0, */parser.load(fileName)/*)*/.get_resize(size, size, 1, 1));
+	ref.save(("ref_" + std::to_string(nbComponents) + "_" + fileName + ".pgm").c_str());
 	ImageVector<double> dummy(ref - mean);
 	for (int ch = 0; ch < this->eigenVecImages.front().componentsCount(); ++ch) {
-		Eigen::VectorXd c(this->eigenVecImages.size());
-		Eigen::MatrixXd A(this->eigenVecImages.size(), this->eigenVecImages.front().pixelCount());
-		for (int i = 0; i < this->eigenVecImages.size(); ++i) {
-			ImageVector<double> vecp((this->eigenVecImages[i].getImage(imgSize, imgSize)));
+		Eigen::VectorXd c(nbComponents);
+		Eigen::MatrixXd A(nbComponents, this->eigenVecImages.front().pixelCount());
+		for (int i = 0; i < nbComponents; ++i) {
+			ImageVector<double> vecp((this->eigenVecImages[i].getImage(size, size)));
 			A.row(i) = vecp.getComponent(ch);
 		}
 		c = Eigen::ColPivHouseholderQR<Eigen::MatrixXd>(A.transpose()).solve(dummy.getComponent(ch));
 		for (int i = 1; i < c.rows(); ++i)
 		{
-			output.channel(ch) += c[i] * this->eigenVecImages[i].getImage(imgSize, imgSize).channel(ch);
+			output.channel(ch) += c[i] * this->eigenVecImages[i].getImage(size, size).channel(ch);
 		}
 	}
 	output += mean;
@@ -201,10 +254,6 @@ void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents, int im
 			this->eigenVecImages.at(i).setComponentFree(component, eigenImages.at(i));
 		}
 		imageIndex = 0;
-	}
-	for (int i = 0; i < nbComponents; ++i)
-	{
-		this->eigenVecImages.at(i).save("eigenV" + std::to_string(i) + ".ppm", imgSize, imgSize);
 	}
 }
 

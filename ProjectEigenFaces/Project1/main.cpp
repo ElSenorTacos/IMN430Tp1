@@ -8,33 +8,31 @@
 	using namespace std;
 
 int main(int argc, const char * argv[]) {
-    if(argc < 3) return 1;
+	if (argc < 3) {
+		std::cout << "Set argument 1 to the filePath containing the images" << std::endl;
+		std::cout << "Set argument 2 to either : - the fileNames containing the images names of the database" << std::endl;
+		std::cout << "                           - the fileNames containing the eigenvectors of the database" << std::endl;
+		return 1;
+	}
 
-	/*for (int i = 1; i < 47; i++) {
-		std::string fileX = std::to_string(i) + ".ppm";
-		std::string fileXOutput = "outpout" + fileX;
-		CImg<unsigned char> image1(fileXOutput.c_str());
-
-		image1.resize(8, 8);
-		image1.save(fileXOutput.c_str());
-	}*/
 	size_t sz, nbVects;
-	cout << "What size : ";
-	cin >> sz;
-	cout << "Nb of v_prop : ";
-	cin >> nbVects;
 
 
-    EigenFaces<unsigned char> eigenFaces(argv[1], argv[2]);
-    eigenFaces.apply(nbVects, sz);
-	string recons, ext;
+
+	EigenFaces<unsigned char> eigenFaces(argv[1], argv[2]);
+	if (!eigenFaces.existingDB()) {
+		cout << "What size : ";
+		cin >> sz;
+		eigenFaces.apply(sz);
+	}
+	string recons;
 	while (true) {
-		cout << "Image to rebuild (without extension) : ";
+		cout << "Image to rebuild : ";
 		cin >> recons;
-		cout << "Extension : ";
-		cin >> ext;
-		EigenFaces<unsigned char>::ImageType output = eigenFaces.reconstruct(recons + ext, sz);
-		string ouputn = recons + "_recons" + ext;
+		cout << "Nb of v_prop : ";
+		cin >> nbVects;
+		EigenFaces<unsigned char>::ImageType output = eigenFaces.reconstruct(recons, nbVects);
+		string ouputn = "recons_" + std::to_string(nbVects) + "_" + recons + ".pgm";
 		output.save(ouputn.c_str());
 		cout << "Another ? ";
 		cin >> recons;

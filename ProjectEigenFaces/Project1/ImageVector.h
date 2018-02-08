@@ -17,7 +17,7 @@ public:
 
     typedef     cimg_library::CImg<T>                   ImageType;
 
-	ImageVector() {}
+	ImageVector() { imageComponents.resize(1); }
     explicit ImageVector(ImageType image) { vectorize(image); };
     ~ImageVector();
 
