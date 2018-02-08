@@ -48,7 +48,7 @@ public:
     ~EigenFaces();
 
     void apply(int);
-    ImageType reconstruct(std::string, int);
+    ImageType reconstruct(std::string, int, Eigen::VectorXd&);
 
 	bool existingDB() { return dbExists; }
 protected:
@@ -139,7 +139,7 @@ void EigenFaces<T>::apply(int imgSize)
 }
 
 template<class T>
-typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int nbComponents)
+typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int nbComponents, Eigen::VectorXd& reconstructionCoeffs)
 {
 	EigenLinImgType output(size, size, 1, 1); output.fill(0);
 	EigenLinImgType ref(/*this->realign(image0, */parser.load(fileName)/*)*/.get_resize(size, size, 1, 1, 5));
@@ -152,10 +152,10 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileNam
 			ImageVector<double> vecp((this->eigenVecImages[i].getImage(size, size)));
 			A.row(i) = vecp.getComponent(ch);
 		}
-		c = Eigen::ColPivHouseholderQR<Eigen::MatrixXd>(A.transpose()).solve(dummy.getComponent(ch));
+		reconstructionCoeffs = Eigen::ColPivHouseholderQR<Eigen::MatrixXd>(A.transpose()).solve(dummy.getComponent(ch));
 		for (int i = 1; i < c.rows(); ++i)
 		{
-			output.channel(ch) += c[i] * this->eigenVecImages[i].getImage(size, size).channel(ch);
+			output.channel(ch) += reconstructionCoeffs[i] * this->eigenVecImages[i].getImage(size, size).channel(ch);
 		}
 	}
 	output += mean;

@@ -31,7 +31,10 @@ int main(int argc, const char * argv[]) {
 		cin >> recons;
 		cout << "Nb of v_prop : ";
 		cin >> nbVects;
-		EigenFaces<unsigned char>::ImageType output = eigenFaces.reconstruct(recons, nbVects);
+
+		Eigen::VectorXd reconstructionCoeffs;
+		EigenFaces<unsigned char>::ImageType output = eigenFaces.reconstruct(recons, nbVects, reconstructionCoeffs);
+
 		string ouputn = "recons_" + std::to_string(nbVects) + "_" + recons + ".pgm";
 		output.save(ouputn.c_str());
 		cout << "Another ? ";
