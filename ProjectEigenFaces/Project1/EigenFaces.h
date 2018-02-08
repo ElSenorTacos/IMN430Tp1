@@ -4,20 +4,42 @@
 #include <string>
 #include <vector>
 #include "Eigen/Dense"
+#include "Eigen/Householder"
 #include "ImageVector.h"
 #include "ImageParser.h"
 #include "FGExtractor.h"
 #include <string>
 
+struct eigen {
+	double value;
+	Eigen::VectorXd *vect;
+	eigen() : value{ std::numeric_limits<double>::min() }, vect{ nullptr } {}
+	eigen(eigen& oth) : value{ oth.value }, vect{ oth.vect } {}
+	eigen(eigen&& oth) : value{ oth.value }, vect{ oth.vect } {}
+	explicit eigen(double valp, Eigen::VectorXd& vp) : value{ valp }, vect{ &vp } {}
+	bool operator<(eigen const &oth) const {
+		return value >= oth.value;
+	}
+	eigen operator=(eigen& oth) {
+		return oth;
+	}
+};
+struct myclass {
+	bool operator() (eigen& i, eigen& j) { return (i.value>=j.value); }
+} bigger;
+
 template<class T>
 class EigenFaces
 {
+
     ImageParser<T> parser;
 public:
 
     typedef cimg_library::CImg<T>               ImageType;
     typedef ImageVector<T>                      LinearImageType;
     typedef std::vector<LinearImageType>        LinImgPackType;
+	typedef cimg_library::CImg<double>			EigenLinImgType;
+	typedef std::vector<ImageVector<double>>    EigenLinImgPackType;
     typedef Eigen::VectorXd                     EigenLinearImageType;
 	typedef std::vector<Eigen::VectorXd>        EigenLinearImagePackType;
 
@@ -26,14 +48,15 @@ public:
     ~EigenFaces();
 
     void apply(const size_t, int);
-    ImageType reconstruct(std::string);
+    ImageType reconstruct(std::string, int);
 protected:
-    ImageType       image0;
-    LinImgPackType  eigenVecImages;
+    ImageType			 image0;
+	EigenLinImgPackType  eigenVecImages;
+	EigenLinImgType		 mean;
 
     ImageType realign(const ImageType&, const ImageType&);
     void pca(LinImgPackType&, size_t, int);
-	EigenLinearImagePackType pca(Eigen::MatrixXd&, size_t&);
+	EigenLinearImagePackType pca(Eigen::MatrixXd&, size_t&, bool = false);
 };
 
 template<class T>
@@ -53,20 +76,37 @@ void EigenFaces<T>::apply(const size_t nbComponents, int imgSize)
 	LinImgPackType vectorizedImages;
 
 	this->image0 = parser.next();
-	vectorizedImages.emplace_back(this->image0.get_resize(imgSize, imgSize, 1, this->image0.spectrum()));
+	vectorizedImages.emplace_back(this->image0.get_resize(imgSize, imgSize, 1, this->image0.spectrum()).get_RGBtoYCbCr().get_channel(0));
 
 	std::for_each(parser.begin() + 1, parser.end(), [&](std::string a)
 	{
-		vectorizedImages.emplace_back(this->realign(this->image0, parser.next()).resize(imgSize, imgSize, 1, this->image0.spectrum()));
+		vectorizedImages.emplace_back(this->realign(this->image0, parser.next()).resize(imgSize, imgSize, 1, this->image0.spectrum()).get_RGBtoYCbCr().get_channel(0));
 	});
 
 	this->pca(vectorizedImages, nbComponents, imgSize);
 }
 
 template<class T>
-typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName)
+typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int imgSize)
 {
-	return ImageType();
+	EigenLinImgType output(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()); output.fill(0);
+	EigenLinImgType ref(parser.load(fileName).get_resize(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()));
+	ImageVector<double> dummy(ref - mean);
+	for (int ch = 0; ch < this->eigenVecImages.front().componentsCount(); ++ch) {
+		Eigen::VectorXd c(this->eigenVecImages.size());
+		Eigen::MatrixXd A(this->eigenVecImages.size(), this->eigenVecImages.front().pixelCount());
+		for (int i = 0; i < this->eigenVecImages.size(); ++i) {
+			ImageVector<double> vecp((this->eigenVecImages[i].getImage(imgSize, imgSize)));
+			A.row(i) = vecp.getComponent(ch);
+		}
+		c = Eigen::ColPivHouseholderQR<Eigen::MatrixXd>(A.transpose()).solve(dummy.getComponent(ch));
+		for (int i = 1; i < c.rows(); ++i)
+		{
+			output.channel(ch) += c[i] * this->eigenVecImages[i].getImage(imgSize, imgSize).channel(ch);
+		}
+	}
+	
+	return output;
 }
 
 template <class T>
@@ -139,7 +179,7 @@ template<class T>
 void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents, int imgSize)
 {
 	this->eigenVecImages.resize(nbComponents);
-	std::for_each(this->eigenVecImages.begin(), this->eigenVecImages.end(), [&](LinearImageType& vectorImage)
+	std::for_each(this->eigenVecImages.begin(), this->eigenVecImages.end(), [&](ImageVector<double>& vectorImage)
 	{
 		vectorImage.resize(dataVectors.front().componentsCount());
 		vectorImage.setPixelSize(nbComponents);
@@ -154,7 +194,8 @@ void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents, int im
 			pcaMatrix.col(imageIndex) = imageVector.getComponent(component).cast<double>();
 			++imageIndex;
 		});
-		std::vector<EigenLinearImageType> eigenImages = pca(pcaMatrix, sz);
+		this->mean = ImageVector<double>::vectToImage(pcaMatrix.rowwise().mean(), imgSize, imgSize);
+		std::vector<EigenLinearImageType> eigenImages = pca(pcaMatrix, sz, true);
 		for (int i = 0; i < nbComponents; ++i)
 		{
 			this->eigenVecImages.at(i).setComponentFree(component, eigenImages.at(i));
@@ -168,7 +209,7 @@ void EigenFaces<T>::pca(LinImgPackType& dataVectors, size_t nbComponents, int im
 }
 
 template<class T>
-typename EigenFaces<T>::EigenLinearImagePackType EigenFaces<T>::pca(Eigen::MatrixXd& data, size_t& maxIndex)
+typename EigenFaces<T>::EigenLinearImagePackType EigenFaces<T>::pca(Eigen::MatrixXd& data, size_t& maxIndex, bool sorted)
 {
 	int N = data.cols();
 	if (N == 0)
@@ -184,15 +225,33 @@ typename EigenFaces<T>::EigenLinearImagePackType EigenFaces<T>::pca(Eigen::Matri
 
 	Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> ES(Q);
 
-	ES.eigenvalues().real().maxCoeff(&maxIndex);
-
 	std::vector< EigenLinearImageType > eigenVectors;
+	VectorXd eigenVals{ ES.eigenvalues() };
 
 	for (int i = 0; i < data.rows(); ++i)
 	{
-		EigenLinearImageType vp = ES.eigenvectors().col(i).real();
-		eigenVectors.emplace_back(vp);
+		eigenVectors.emplace_back(ES.eigenvectors().col(i).real());
 	}
+
+	if (sorted) {
+		std::vector<eigen> vpsorted;
+		for (int i = 0; i < eigenVectors.size(); ++i) {
+			vpsorted.emplace_back(eigenVals[i], eigenVectors[i]);
+		}
+		std::sort(vpsorted.begin(), vpsorted.end(), bigger);
+		std::vector<EigenLinearImageType> eig2;
+		std::cout << "Eigens : ";
+		std::for_each(vpsorted.rbegin(), vpsorted.rend(), [&](eigen e) {
+			std::cout << e.value << " ";
+			eig2.push_back(*(e.vect));
+		});
+		std::cout << std::endl;
+		eigenVectors = eig2;
+	}
+	else {
+		ES.eigenvalues().maxCoeff(&maxIndex);
+	}
+
 	return eigenVectors;
 }
 

@@ -35,6 +35,17 @@ public:
     size_t componentsCount() const { return imageComponents.size(); }
     size_t pixelCount() const { return imageComponents.front().size(); }
 
+	static ImageType vectToImage(Eigen::VectorXd v, size_t sizeX, size_t sizeY)
+	{
+		ImageType output(sizeX, sizeY, 1, 1);
+		cimg_forXY(output, x, y)
+		{
+			output(x, y, 0, 0) = v(x + y * sizeX);
+		}
+		return output;
+	}
+
+	ImageType getImage(size_t sizeX, size_t sizeY);
     void save(std::string name, size_t sizeX, size_t sizeY);
 
 private:
@@ -93,17 +104,23 @@ void ImageVector<T>::initialize(const int nbChannels, const int size)
 }
 
 template <class T>
-void ImageVector<T>::save(std::string name, size_t sizeX, size_t sizeY)
+typename ImageVector<T>::ImageType ImageVector<T>::getImage(size_t sizeX, size_t sizeY)
 {
 	ImageType output(sizeX, sizeY, 1, imageComponents.size());
 	cimg_forXY(output, x, y)
 	{
 		for (size_t i = 0; i < imageComponents.size(); ++i)
 		{
-			output(x, y, 0, i) = abs(imageComponents.at(i)(x + y * sizeX)) * 256.f;
+			output(x, y, 0, i) = imageComponents.at(i)(x + y * sizeX);
 		}
 	}
-	output.save(name.c_str());
+	return output;
+}
+
+template <class T>
+void ImageVector<T>::save(std::string name, size_t sizeX, size_t sizeY)
+{
+	abs(getImage(sizeX, sizeY) * 256).save(name.c_str());
 }
 
 #endif //__ImageVector_h_

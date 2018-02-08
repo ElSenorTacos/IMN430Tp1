@@ -28,5 +28,14 @@ int main(int argc, const char * argv[]) {
     EigenFaces<unsigned char> eigenFaces(argv[1], argv[2]);
     eigenFaces.apply(nbVects, sz);
 
+	string recons, ext;
+	cout << "Image to rebuild (without extension) : ";
+	cin >> recons;
+	cout << "Extension : ";
+	cin >> ext;
+	EigenFaces<unsigned char>::ImageType output = eigenFaces.reconstruct(recons + ext, sz);
+	string ouputn = recons + "_recons" + ext;
+	output.save(ouputn.c_str());
+
 	return 0;
 }
