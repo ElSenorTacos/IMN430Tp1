@@ -90,7 +90,7 @@ template<class T>
 typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileName, int imgSize)
 {
 	EigenLinImgType output(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()); output.fill(0);
-	EigenLinImgType ref(parser.load(fileName).get_resize(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()));
+	EigenLinImgType ref(this->realign(image0, parser.load(fileName)).get_resize(imgSize, imgSize, this->image0.depth(), this->image0.spectrum()));
 	ImageVector<double> dummy(ref - mean);
 	for (int ch = 0; ch < this->eigenVecImages.front().componentsCount(); ++ch) {
 		Eigen::VectorXd c(this->eigenVecImages.size());
@@ -105,7 +105,7 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileNam
 			output.channel(ch) += c[i] * this->eigenVecImages[i].getImage(imgSize, imgSize).channel(ch);
 		}
 	}
-	
+	output += mean;
 	return output;
 }
 

@@ -160,8 +160,7 @@ std::vector<std::pair<int, int>> FGExtractor<T>::getForegroundPixelsPositions(Im
 		}
 	}
 
-	dilatationImage(interests, pointMap);
-	erosionImage(interests, pointMap);
+	//dilatationImage(interests, pointMap);
 
 	return std::forward<std::vector<std::pair<int, int>>>(interests);
 }
