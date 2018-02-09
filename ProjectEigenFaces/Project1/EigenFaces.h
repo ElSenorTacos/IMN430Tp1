@@ -8,7 +8,8 @@
 #include "ImageVector.h"
 #include "ImageParser.h"
 #include "FGExtractor.h"
-#include <string>
+#include "iterator"
+#include <string>B
 
 struct eigen {
 	double value;
@@ -49,13 +50,15 @@ public:
 
     void apply(int);
     ImageType reconstruct(std::string, int, Eigen::VectorXd&);
-
+	void calculateAllCoefficentsForAllImages(int);
+	void writeNClosestImageToFile(const Eigen::VectorXd&, const std::string&, size_t);
 	bool existingDB() { return dbExists; }
 protected:
     ImageType			 image0;
 	EigenLinImgPackType  eigenVecImages;
 	EigenLinImgType		 mean;
 	int					 size;
+	std::vector<std::pair<std::string, Eigen::VectorXd> > eigenValuesVector;
 
 	bool dbExists = false;
 
@@ -160,6 +163,35 @@ typename EigenFaces<T>::ImageType EigenFaces<T>::reconstruct(std::string fileNam
 	}
 	output += mean;
 	return output.abs();
+}
+
+template <class T>
+void EigenFaces<T>::calculateAllCoefficentsForAllImages(int nbComponents)
+{
+	parser.setBegin(); 
+	eigenValuesVector.clear();
+	eigenValuesVector.reserve(parser.size());
+	std::transform(parser.begin(), parser.end(), std::back_inserter(eigenValuesVector), [&](const std::string& name) {
+		Eigen::VectorXd eigenValues;
+		reconstruct(name, nbComponents, eigenValues);
+		return std::make_pair(name, eigenValues);
+	});
+}
+
+template <class T>
+void EigenFaces<T>::writeNClosestImageToFile(const Eigen::VectorXd& refEigenValues, const std::string& prefix, size_t numberOfOuputs)
+{
+	std::vector<std::pair<std::string, double> > distanceVector(eigenValuesVector.size());
+	std::transform(eigenValuesVector.begin(), eigenValuesVector.end(), distanceVector.begin(), [&](const std::pair<std::string, Eigen::VectorXd>& eigenValues) {
+		Eigen::VectorXd dist = refEigenValues - eigenValues.second;
+		return std::make_pair(eigenValues.first, dist.squaredNorm());
+	});
+	std::sort(distanceVector.begin(), distanceVector.end(), [](const std::pair<std::string, double>& d1, const std::pair<std::string, double>& d2) {
+		return d1.second < d2.second;
+	});
+	for_each(distanceVector.begin(), std::vector<std::pair<std::string, double> >::iterator(distanceVector.begin() + numberOfOuputs), [&](const std::pair<std::string, double>& pair) {
+		parser.load(pair.first).save(std::string{ prefix + pair.first + ".ppm" }.c_str());
+	});
 }
 
 template <class T>

@@ -16,9 +16,7 @@ int main(int argc, const char * argv[]) {
 	}
 
 	size_t sz, nbVects;
-
-
-
+	
 	EigenFaces<unsigned char> eigenFaces(argv[1], argv[2]);
 	if (!eigenFaces.existingDB()) {
 		cout << "What size : ";
@@ -26,6 +24,8 @@ int main(int argc, const char * argv[]) {
 		eigenFaces.apply(sz);
 	}
 	string recons;
+	int nbVectsForClosestImage = 60;
+	eigenFaces.calculateAllCoefficentsForAllImages(nbVectsForClosestImage);
 	while (true) {
 		cout << "Image to rebuild : ";
 		cin >> recons;
@@ -37,6 +37,30 @@ int main(int argc, const char * argv[]) {
 
 		string ouputn = "recons_" + std::to_string(nbVects) + "_" + recons + ".pgm";
 		output.save(ouputn.c_str());
+		cout << "get closest images?";
+		string answer;
+		cin >> answer;
+		if (answer == "y" || answer == "Y")
+		{
+			if (nbVects != nbVectsForClosestImage)
+			{
+				nbVectsForClosestImage = nbVects;
+				eigenFaces.calculateAllCoefficentsForAllImages(nbVectsForClosestImage);
+			}
+			while (true)
+			{
+				cout << "enter number of Images : ";
+				size_t n;
+				cin >> n;
+				eigenFaces.writeNClosestImageToFile(reconstructionCoeffs, std::to_string(n) + "closestImages", n);
+				std::string answer;
+				cout << "Again ? ";
+				cin >> answer;
+				if (answer == "n" || answer == "N") {
+					break;
+				}
+			}
+		}
 		cout << "Another ? ";
 		cin >> recons;
 		if (recons == "n" || recons == "N") {

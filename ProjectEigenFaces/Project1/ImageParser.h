@@ -34,7 +34,7 @@ public:
 	inline std::vector<std::string>::iterator end() { return imagePaths.end(); }
 	inline std::vector<std::string>::const_iterator end() const { return imagePaths.cend(); }
 	inline void setBegin() { currentImagePath = imagePaths.begin(); }
-
+	inline const size_t size() const { return imagePaths.size(); }
 	cimg_library::CImg<T> load(const std::string& genericFolderPath, const std::string& imageName) const //load image wrapper
 	{
 		return cimg_library::CImg<T>(std::string(genericFolderPath + "/" + imageName).c_str());
@@ -51,7 +51,7 @@ public:
 		{
 			cimg_library::CImg<T> image(std::string(folderPath + "/" + *currentImagePath).c_str());
 			++currentImagePath;
-			return std::move(image);
+			return image;
 		}
 		return cimg_library::CImg<T>();
 	}
